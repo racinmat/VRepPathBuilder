@@ -115,7 +115,7 @@ for stateId, state in enumerate(path):
 
 			print('difference')
 			print((currentX - x) ** 2 + (currentY - y) ** 2)
-			uavsReachedTargets[id] = (currentX - x) ** 2 + (currentY - y) ** 2 < 0.2
+			uavsReachedTargets[id] = (currentX - x) ** 2 + (currentY - y) ** 2 < 1.5
 
 		allUavsReachedTarget = True
 		for uavId, reachedTarget in uavsReachedTargets.items():
