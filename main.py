@@ -81,18 +81,18 @@ for stateId, state in enumerate(path):
 		y = uavPosition['y']
 		vrep.simxSetObjectPosition(clientID, targets[id], -1, [x, y, z], vrep.simx_opmode_oneshot_wait)  # používat streaming nebo buffer místo oneshot wait, na první použít streaming a na další buffer
 
-	print('current state:')
-	print(stateId)
+	# print('current state:')
+	# print(stateId)
 	uavsReachedTargets = {}
 	for id in uavIds:
 		uavsReachedTargets[id] = False
 
 	allUavsReachedTarget = False
 
-	print('allUavsReachedTarget')
-	print(allUavsReachedTarget)
-	print('uavsReachedTargets')
-	print(uavsReachedTargets)
+	# print('allUavsReachedTarget')
+	# print(allUavsReachedTarget)
+	# print('uavsReachedTargets')
+	# print(uavsReachedTargets)
 
 	# čeká se, než se k dalšímu stavu dorazí, než se nastaví jako cíl
 
@@ -100,12 +100,12 @@ for stateId, state in enumerate(path):
 		# input("Press Enter to continue...")
 		for id, uav in state.items():
 			uavPosition = uav['pointParticle']['location']
-			pprint.pprint('target position')
-			pprint.pprint(uavPosition)
+			# pprint.pprint('target position')
+			# pprint.pprint(uavPosition)
 
 			_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_oneshot_wait)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
-			pprint.pprint('current position')
-			pprint.pprint(position)
+			# pprint.pprint('current position')
+			# pprint.pprint(position)
 
 			currentX = position[0]
 			currentY = position[1]
@@ -113,15 +113,15 @@ for stateId, state in enumerate(path):
 			x = uavPosition['x']
 			y = uavPosition['y']
 
-			print('difference')
-			print((currentX - x) ** 2 + (currentY - y) ** 2)
-			uavsReachedTargets[id] = (currentX - x) ** 2 + (currentY - y) ** 2 < 1.5
+			# print('difference')
+			# print((currentX - x) ** 2 + (currentY - y) ** 2)
+			uavsReachedTargets[id] = (currentX - x) ** 2 + (currentY - y) ** 2 < 10
 
 		allUavsReachedTarget = True
 		for uavId, reachedTarget in uavsReachedTargets.items():
 			allUavsReachedTarget = allUavsReachedTarget and reachedTarget
 
-		time.sleep(.2)
+		time.sleep(.0001)
 
 
 	print('all uavs now have new state as target')
