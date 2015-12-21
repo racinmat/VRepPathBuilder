@@ -11,7 +11,7 @@ print ('Program started')
 
 # načtení cesty
 
-with open('path.json') as data_file:
+with open('path0.json') as data_file:
     data = json.load(data_file)
 
 # pprint.pprint(data)
@@ -44,11 +44,6 @@ if clientID == -1:
 
 z = 0.511
 
-# _, temp = vrep.simxCreateDummy(clientID, 0.1, None, vrep.simx_opmode_oneshot_wait)
-# vrep.simxSetObjectPosition(clientID, temp, -1, [x, y, z], vrep.simx_opmode_oneshot_wait) # -1 je ku celé scéně, v tempu je handle, v podrtžítku návratová hodnota, oneshot wait čeká, než se příkaz provede
-
-# vezmu handle targetů kvadrokoptér
-
 uavNames = ['Quadricopter']
 targetNames = ['Quadricopter_target']
 uavIds = []
@@ -68,6 +63,7 @@ uavIds.sort()
 targets = {}  # dictionary
 uavs = {} 	# dictionary
 
+# vezmu handle targetů kvadrokoptér
 for i, uavName in enumerate(uavNames):
 	_, targets[uavIds[i]] = vrep.simxGetObjectHandle(clientID, targetNames[i], vrep.simx_opmode_oneshot_wait)
 	_, uavs[uavIds[i]] = vrep.simxGetObjectHandle(clientID, uavNames[i], vrep.simx_opmode_oneshot_wait)
@@ -115,13 +111,13 @@ for stateId, state in enumerate(path):
 
 			# print('difference')
 			# print((currentX - x) ** 2 + (currentY - y) ** 2)
-			uavsReachedTargets[id] = (currentX - x) ** 2 + (currentY - y) ** 2 < 10
+			uavsReachedTargets[id] = (currentX - x) ** 2 + (currentY - y) ** 2 < 17
 
 		allUavsReachedTarget = True
 		for uavId, reachedTarget in uavsReachedTargets.items():
 			allUavsReachedTarget = allUavsReachedTarget and reachedTarget
 
-		time.sleep(.0001)
+		time.sleep(.00005)
 
 
 	print('all uavs now have new state as target')

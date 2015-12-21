@@ -28,7 +28,7 @@ for id, e in enumerate(uavNames):
 	print(id)
 	print(e)
 
-with open('path.json') as data_file:
+with open('path3.json') as data_file:
     data = json.load(data_file)
 
 # pprint.pprint(data)
