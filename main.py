@@ -1,6 +1,7 @@
 import vrep
 import sys
 import json
+import math
 import pprint
 from utils import moveCoordsToObjectMiddle
 from utils import moveCoords
@@ -11,7 +12,7 @@ print ('Program started')
 
 # načtení cesty
 
-with open('path0.json') as data_file:
+with open('path3.json') as data_file:
     data = json.load(data_file)
 
 # pprint.pprint(data)
@@ -43,6 +44,8 @@ if clientID == -1:
 
 
 z = 0.511
+targetDistanceFromUAV = 2
+
 
 uavNames = ['Quadricopter']
 targetNames = ['Quadricopter_target']
@@ -73,9 +76,29 @@ for stateId, state in enumerate(path):
 
 	for id, uav in state.items():
 		uavPosition = uav['pointParticle']['location']
-		x = uavPosition['x']
-		y = uavPosition['y']
-		vrep.simxSetObjectPosition(clientID, targets[id], -1, [x, y, z], vrep.simx_opmode_oneshot_wait)  # používat streaming nebo buffer místo oneshot wait, na první použít streaming a na další buffer
+		xEnd = uavPosition['x']
+		yEnd = uavPosition['y']
+
+		_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_oneshot_wait)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
+
+		xStart = position[0]
+		yStart = position[1]
+
+		x = xEnd - xStart
+		y = yEnd - yStart
+
+		distance = math.sqrt(x * x + y * y)
+
+		# pokud je vzfálenost cíle větší, než jsem si určil, normalizuji
+		if distance > targetDistanceFromUAV:
+			x = (x * targetDistanceFromUAV) / distance
+			y = (y * targetDistanceFromUAV) / distance
+
+
+		xTarget = xStart + x
+		yTarget = yStart + y
+
+		vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot_wait)  # používat streaming nebo buffer místo oneshot wait, na první použít streaming a na další buffer
 
 	# print('current state:')
 	# print(stateId)
@@ -92,6 +115,10 @@ for stateId, state in enumerate(path):
 
 	# čeká se, než se k dalšímu stavu dorazí, než se nastaví jako cíl
 
+	# více navzorkovat cestu, nebo popsat analyticky. dávat uav cíl vždy s konstantní vzdáleností před UAV (perioda 0.2)
+	# když pvní dorazí, dám další stav, udělám přímky mezi stavy a mezi stavy konst. čas letu. (pro vzdálenější cíl budu servírovat částečné cíle dále od sebe)
+	# kromě 1. stavu brát vzdálenost mezi UAV a dalším stavem, místo 2 stavů
+	# vzorkovat trajektorie ekvidistantně v čase
 	while not allUavsReachedTarget:
 		# input("Press Enter to continue...")
 		for id, uav in state.items():
@@ -117,7 +144,7 @@ for stateId, state in enumerate(path):
 		for uavId, reachedTarget in uavsReachedTargets.items():
 			allUavsReachedTarget = allUavsReachedTarget and reachedTarget
 
-		time.sleep(.00005)
+		time.sleep(0.01)
 
 
 	print('all uavs now have new state as target')
