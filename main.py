@@ -87,13 +87,12 @@ for stateId, state in enumerate(path):
 		x = xEnd - xStart
 		y = yEnd - yStart
 
-		distance = math.sqrt(x * x + y * y)
+		distance = math.sqrt(x ** 2 + y ** 2)
 
-		# pokud je vzfálenost cíle větší, než jsem si určil, normalizuji
+		# pokud je vzdálenost cíle větší, než jsem si určil, normalizuji
 		if distance > targetDistanceFromUAV:
 			x = (x * targetDistanceFromUAV) / distance
 			y = (y * targetDistanceFromUAV) / distance
-
 
 		xTarget = xStart + x
 		yTarget = yStart + y
@@ -144,7 +143,7 @@ for stateId, state in enumerate(path):
 		for uavId, reachedTarget in uavsReachedTargets.items():
 			allUavsReachedTarget = allUavsReachedTarget and reachedTarget
 
-		time.sleep(0.01)
+		# time.sleep(0.005)
 
 
 	print('all uavs now have new state as target')
