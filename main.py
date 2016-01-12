@@ -12,7 +12,7 @@ print ('Program started')
 
 # načtení cesty
 
-with open('path4.json') as data_file:
+with open('path5.json') as data_file:
     data = json.load(data_file)
 
 # pprint.pprint(data)
