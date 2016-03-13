@@ -12,7 +12,7 @@ print ('Program started')
 
 # načtení cesty
 
-with open('path5.json') as data_file:
+with open('path0.json') as data_file:
     data = json.load(data_file)
 
 # pprint.pprint(data)
@@ -44,7 +44,7 @@ if clientID == -1:
 
 
 z = 0.511
-targetDistanceFromUAV = 2
+targetDistanceFromUAV = 0.2
 
 
 uavNames = ['Quadricopter']
@@ -70,34 +70,9 @@ uavs = {} 	# dictionary
 for i, uavName in enumerate(uavNames):
 	_, targets[uavIds[i]] = vrep.simxGetObjectHandle(clientID, targetNames[i], vrep.simx_opmode_oneshot_wait)
 	_, uavs[uavIds[i]] = vrep.simxGetObjectHandle(clientID, uavNames[i], vrep.simx_opmode_oneshot_wait)
-
+	# vrep.simxGetObjectPosition(clientID, uavs[uavIds[i]], -1, vrep.simx_opmode_streaming)
 
 for stateId, state in enumerate(path):
-
-	for id, uav in state.items():
-		uavPosition = uav['pointParticle']['location']
-		xEnd = uavPosition['x']
-		yEnd = uavPosition['y']
-
-		_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_oneshot_wait)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
-
-		xStart = position[0]
-		yStart = position[1]
-
-		x = xEnd - xStart
-		y = yEnd - yStart
-
-		distance = math.sqrt(x ** 2 + y ** 2)
-
-		# pokud je vzdálenost cíle větší, než jsem si určil, normalizuji
-		if distance > targetDistanceFromUAV:
-			x = (x * targetDistanceFromUAV) / distance
-			y = (y * targetDistanceFromUAV) / distance
-
-		xTarget = xStart + x
-		yTarget = yStart + y
-
-		vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot_wait)  # používat streaming nebo buffer místo oneshot wait, na první použít streaming a na další buffer
 
 	# print('current state:')
 	# print(stateId)
@@ -107,11 +82,6 @@ for stateId, state in enumerate(path):
 
 	allUavsReachedTarget = False
 
-	# print('allUavsReachedTarget')
-	# print(allUavsReachedTarget)
-	# print('uavsReachedTargets')
-	# print(uavsReachedTargets)
-
 	# čeká se, než se k dalšímu stavu dorazí, než se nastaví jako cíl
 
 	# více navzorkovat cestu, nebo popsat analyticky. dávat uav cíl vždy s konstantní vzdáleností před UAV (perioda 0.2)
@@ -119,31 +89,39 @@ for stateId, state in enumerate(path):
 	# kromě 1. stavu brát vzdálenost mezi UAV a dalším stavem, místo 2 stavů
 	# vzorkovat trajektorie ekvidistantně v čase
 	while not allUavsReachedTarget:
-		# input("Press Enter to continue...")
 		for id, uav in state.items():
 			uavPosition = uav['pointParticle']['location']
-			# pprint.pprint('target position')
-			# pprint.pprint(uavPosition)
+			xEnd = uavPosition['x']
+			yEnd = uavPosition['y']
 
 			_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_oneshot_wait)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
-			# pprint.pprint('current position')
-			# pprint.pprint(position)
+			# _, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_buffer)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
 
-			currentX = position[0]
-			currentY = position[1]
+			xStart = position[0]
+			yStart = position[1]
 
-			x = uavPosition['x']
-			y = uavPosition['y']
+			x = xEnd - xStart
+			y = yEnd - yStart
 
-			# print('difference')
-			# print((currentX - x) ** 2 + (currentY - y) ** 2)
-			uavsReachedTargets[id] = (currentX - x) ** 2 + (currentY - y) ** 2 < 17
+			distance = math.sqrt(x ** 2 + y ** 2)
+
+			# pokud je vzdálenost cíle větší, než jsem si určil, normalizuji
+			if distance > targetDistanceFromUAV:
+				x = (x * targetDistanceFromUAV) / distance
+				y = (y * targetDistanceFromUAV) / distance
+
+			xTarget = xStart + x
+			yTarget = yStart + y
+
+			vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)  # používat streaming nebo buffer místo oneshot wait, na první použít streaming a na další buffer
+			print('position updated')
+			uavsReachedTargets[id] = distance < 2
+
+
 
 		allUavsReachedTarget = True
 		for uavId, reachedTarget in uavsReachedTargets.items():
 			allUavsReachedTarget = allUavsReachedTarget and reachedTarget
-
-		# time.sleep(0.005)
 
 
 	print('all uavs now have new state as target')
