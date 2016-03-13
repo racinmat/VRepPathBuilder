@@ -1,3 +1,5 @@
+import datetime
+
 import vrep
 import sys
 import json
@@ -70,8 +72,9 @@ uavs = {} 	# dictionary
 for i, uavName in enumerate(uavNames):
 	_, targets[uavIds[i]] = vrep.simxGetObjectHandle(clientID, targetNames[i], vrep.simx_opmode_oneshot_wait)
 	_, uavs[uavIds[i]] = vrep.simxGetObjectHandle(clientID, uavNames[i], vrep.simx_opmode_oneshot_wait)
-	# vrep.simxGetObjectPosition(clientID, uavs[uavIds[i]], -1, vrep.simx_opmode_streaming)
+	vrep.simxGetObjectPosition(clientID, uavs[uavIds[i]], -1, vrep.simx_opmode_streaming)
 
+a = datetime.datetime.now()
 for stateId, state in enumerate(path):
 
 	# print('current state:')
@@ -88,14 +91,15 @@ for stateId, state in enumerate(path):
 	# když pvní dorazí, dám další stav, udělám přímky mezi stavy a mezi stavy konst. čas letu. (pro vzdálenější cíl budu servírovat částečné cíle dále od sebe)
 	# kromě 1. stavu brát vzdálenost mezi UAV a dalším stavem, místo 2 stavů
 	# vzorkovat trajektorie ekvidistantně v čase
+
 	while not allUavsReachedTarget:
+
 		for id, uav in state.items():
 			uavPosition = uav['pointParticle']['location']
 			xEnd = uavPosition['x']
 			yEnd = uavPosition['y']
 
-			_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_oneshot_wait)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
-			# _, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_buffer)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
+			_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_buffer)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
 
 			xStart = position[0]
 			yStart = position[1]
@@ -114,7 +118,8 @@ for stateId, state in enumerate(path):
 			yTarget = yStart + y
 
 			vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)  # používat streaming nebo buffer místo oneshot wait, na první použít streaming a na další buffer
-			print('position updated')
+			# print('position updated')
+			# print(str(xStart) + ', ' + str(yStart))
 			uavsReachedTargets[id] = distance < 2
 
 
