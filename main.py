@@ -1,5 +1,4 @@
 import datetime
-
 import vrep
 import sys
 import json
@@ -10,6 +9,7 @@ from utils import moveCoords
 from utils import resizeCoords
 import time
 
+# sys.stdout = open('log-' + str(datetime.datetime.now().microsecond) + '.txt', 'w')		# redirecting output to file
 print ('Program started')
 
 # načtení cesty
@@ -19,9 +19,10 @@ with open('path8.json') as data_file:
 
 # pprint.pprint(data)
 
-# TODO: načítat velikost mapy z jsonu
 # TODO: ošetřit nesymslné hodnoty na začátku, kdy to letí do prdele
-data = resizeCoords(data, 800, 25)	# 1000 je velikost mapy při simulaci, 5 je velikost mapy ve vrepu
+
+size = data['map']['size']
+data = resizeCoords(data, size, 25)	# 1000 je velikost mapy při simulaci, 5 je velikost mapy ve vrepu
 data = moveCoords(data, -12.5, -12.5, 0)	# mapa ve vrepu je -2.5 až 2.5
 data = moveCoordsToObjectMiddle(data)
 path = data['path']
@@ -63,12 +64,14 @@ if uavCount > 0:
 for id in path[0]:
 	uavIds.append(id)
 
-print(path[0])
-print(uavIds)
+# print(path[0])
+# print(uavIds)
 
 uavIds.sort()
 targets = {}  # dictionary
 uavs = {} 	# dictionary
+uavInitialPositions = path[0]
+print(uavInitialPositions['51'])
 
 # vezmu handle targetů kvadrokoptér
 for i, uavName in enumerate(uavNames):
@@ -106,6 +109,11 @@ for stateId, state in enumerate(path):
 			xStart = position[0]
 			yStart = position[1]
 
+			#na začátku někdy VREP špatně načítá počíteční polohu UAV, proto místo něj nastavím počáteční pozici z jsonu
+			if xStart == 0 and yStart == 0:
+				xStart = uavInitialPositions[id]['pointParticle']['location']['x']
+				yStart = uavInitialPositions[id]['pointParticle']['location']['y']
+
 			x = xEnd - xStart
 			y = yEnd - yStart
 
@@ -120,7 +128,7 @@ for stateId, state in enumerate(path):
 			yTarget = yStart + y
 
 			vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)  # používat streaming nebo buffer místo oneshot wait, na první použít streaming a na další buffer
-			# print('position updated')
+			# print('position updated, start position of uav ' + id + '(vrep name: ' + uavNames[uavIds.index(id)] + '):')
 			# print(str(xStart) + ', ' + str(yStart))
 			uavsReachedTargets[id] = distance < 2
 
@@ -132,3 +140,5 @@ for stateId, state in enumerate(path):
 
 
 	print('all uavs now have new state as target')
+
+print('uavs arrived to target')
