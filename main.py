@@ -14,12 +14,14 @@ print ('Program started')
 
 # načtení cesty
 
-with open('path0.json') as data_file:
-    data = json.load(data_file)
+with open('path8.json') as data_file:
+	data = json.load(data_file)
 
 # pprint.pprint(data)
 
-data = resizeCoords(data, 1000, 25)	# 1000 je velikost mapy při simulaci, 5 je velikost mapy ve vrepu
+# TODO: načítat velikost mapy z jsonu
+# TODO: ošetřit nesymslné hodnoty na začátku, kdy to letí do prdele
+data = resizeCoords(data, 800, 25)	# 1000 je velikost mapy při simulaci, 5 je velikost mapy ve vrepu
 data = moveCoords(data, -12.5, -12.5, 0)	# mapa ve vrepu je -2.5 až 2.5
 data = moveCoordsToObjectMiddle(data)
 path = data['path']
@@ -42,7 +44,7 @@ uavCount = len(path[0])
 vrep.simxFinish(-1)  # just in case, close all opened connections
 clientID=vrep.simxStart('127.0.0.1', 19999, True, True, 5000, 5)  # Connect to V-REP
 if clientID == -1:
-    sys.exit(1)
+	sys.exit(1)
 
 
 z = 0.511

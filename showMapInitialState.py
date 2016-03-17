@@ -8,12 +8,12 @@ print ('Program started')
 
 # načtení cesty
 
-with open('path5.json') as data_file:
+with open('path8.json') as data_file:
     data = json.load(data_file)
 
 # pprint.pprint(data)
 
-data = resizeCoords(data, 1000, 25)	# 1000 je velikost mapy při simulaci, 5 je velikost mapy ve vrepu
+data = resizeCoords(data, 800, 25)	# 1000 je velikost mapy při simulaci, 5 je velikost mapy ve vrepu
 data = moveCoords(data, -12.5, -12.5, 0)	# mapa ve vrepu je -2.5 až 2.5
 data = moveCoordsToObjectMiddle(data)
 
