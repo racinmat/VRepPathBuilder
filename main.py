@@ -9,12 +9,13 @@ from utils import moveCoords
 from utils import resizeCoords
 import time
 
-# sys.stdout = open('log-' + str(datetime.datetime.now().microsecond) + '.txt', 'w')		# redirecting output to file
+now = datetime.datetime.now()
+sys.stdout = open('log-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second) + '.txt', 'w')		# redirecting output to file
 print ('Program started')
 
 # načtení cesty
 
-with open('path8.json') as data_file:
+with open('path0.json') as data_file:
 	data = json.load(data_file)
 
 # pprint.pprint(data)
@@ -70,8 +71,8 @@ for id in path[0]:
 uavIds.sort()
 targets = {}  # dictionary
 uavs = {} 	# dictionary
+newStates = {}
 uavInitialPositions = path[0]
-print(uavInitialPositions['51'])
 
 # vezmu handle targetů kvadrokoptér
 for i, uavName in enumerate(uavNames):
@@ -79,8 +80,17 @@ for i, uavName in enumerate(uavNames):
 	_, uavs[uavIds[i]] = vrep.simxGetObjectHandle(clientID, uavNames[i], vrep.simx_opmode_oneshot_wait)
 	vrep.simxGetObjectPosition(clientID, uavs[uavIds[i]], -1, vrep.simx_opmode_streaming)
 
-a = datetime.datetime.now()
+	# znázornění cíle
+	_, newStates[uavIds[i]] = vrep.simxCreateDummy(clientID, 0.25, [0, 255-i*50, i*50], vrep.simx_opmode_oneshot_wait)
+
+
 for stateId, state in enumerate(path):
+
+	for id, uav in state.items():
+		uavPosition = uav['pointParticle']['location']
+		xEnd = uavPosition['x']
+		yEnd = uavPosition['y']
+		vrep.simxSetObjectPosition(clientID, targets[id], -1, [xEnd, yEnd, z], vrep.simx_opmode_oneshot)
 
 	# print('current state:')
 	# print(stateId)
@@ -99,11 +109,12 @@ for stateId, state in enumerate(path):
 
 	while not allUavsReachedTarget:
 
+		time.sleep(0.1)
+
 		for id, uav in state.items():
 			uavPosition = uav['pointParticle']['location']
 			xEnd = uavPosition['x']
 			yEnd = uavPosition['y']
-
 			_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_buffer)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
 
 			xStart = position[0]
@@ -124,15 +135,20 @@ for stateId, state in enumerate(path):
 				x = (x * targetDistanceFromUAV) / distance
 				y = (y * targetDistanceFromUAV) / distance
 
+			reducedDistance = math.sqrt(x ** 2 + y ** 2)
+
 			xTarget = xStart + x
 			yTarget = yStart + y
 
-			vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)  # používat streaming nebo buffer místo oneshot wait, na první použít streaming a na další buffer
-			# print('position updated, start position of uav ' + id + '(vrep name: ' + uavNames[uavIds.index(id)] + '):')
-			# print(str(xStart) + ', ' + str(yStart))
+			vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)
+			print('position updated, start position of uav ' + id + '(vrep name: ' + uavNames[uavIds.index(id)] + '):')
+			print('start: ' + str(xStart) + ', ' + str(yStart))
+			print('end: ' + str(xEnd) + ', ' + str(yEnd))
+			print('movement: ' + str(x) + ', ' + str(y))
+			print('distance: ' + str(distance))
+			print('reduced distance: ' + str(reducedDistance))
+
 			uavsReachedTargets[id] = distance < 2
-
-
 
 		allUavsReachedTarget = True
 		for uavId, reachedTarget in uavsReachedTargets.items():
