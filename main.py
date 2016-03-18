@@ -11,7 +11,7 @@ import time
 
 now = datetime.datetime.now()
 sys.stdout = open('log-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second) + '.txt', 'w')		# redirecting output to file
-print ('Program started')
+print('Program started')
 
 # načtení cesty
 
@@ -19,8 +19,6 @@ with open('path0.json') as data_file:
 	data = json.load(data_file)
 
 # pprint.pprint(data)
-
-# TODO: ošetřit nesymslné hodnoty na začátku, kdy to letí do prdele
 
 size = data['map']['size']
 data = resizeCoords(data, size, 25)	# 1000 je velikost mapy při simulaci, 5 je velikost mapy ve vrepu
@@ -50,8 +48,9 @@ if clientID == -1:
 
 
 z = 0.511
-targetDistanceFromUAV = 0.2
-
+targetDistanceFromUAV = 0.2		# maximální vzdálenost z celého roje. Budu ostatním UAV nastavovat vzdálenost menší, aby je mohlo opožděné UAV dohnat, poměrově podle vzdáleností k cíli
+distanceToNewState = 2
+maxTargetDistanceFromUAV = 0.2
 
 uavNames = ['Quadricopter']
 targetNames = ['Quadricopter_target']
@@ -72,6 +71,9 @@ uavIds.sort()
 targets = {}  # dictionary
 uavs = {} 	# dictionary
 newStates = {}
+uavDistanceFromTarget = {}
+uavPositions = {}
+
 uavInitialPositions = path[0]
 
 # vezmu handle targetů kvadrokoptér
@@ -90,7 +92,7 @@ for stateId, state in enumerate(path):
 		uavPosition = uav['pointParticle']['location']
 		xEnd = uavPosition['x']
 		yEnd = uavPosition['y']
-		vrep.simxSetObjectPosition(clientID, targets[id], -1, [xEnd, yEnd, z], vrep.simx_opmode_oneshot)
+		vrep.simxSetObjectPosition(clientID, newStates[id], -1, [xEnd, yEnd, z], vrep.simx_opmode_oneshot)
 
 	# print('current state:')
 	# print(stateId)
@@ -116,9 +118,10 @@ for stateId, state in enumerate(path):
 			xEnd = uavPosition['x']
 			yEnd = uavPosition['y']
 			_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_buffer)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
-
 			xStart = position[0]
 			yStart = position[1]
+
+			uavPositions[id] = position
 
 			#na začátku někdy VREP špatně načítá počíteční polohu UAV, proto místo něj nastavím počáteční pozici z jsonu
 			if xStart == 0 and yStart == 0:
@@ -130,10 +133,31 @@ for stateId, state in enumerate(path):
 
 			distance = math.sqrt(x ** 2 + y ** 2)
 
+			uavDistanceFromTarget[id] = distance
+
+		maxDistance = max(uavDistanceFromTarget.items())[1]
+		# print('uavPositions: ')
+		# pprint.pprint(uavPositions)
+		# print('maxDistance')
+		# print(maxDistance)
+
+		for id, uav in state.items():
+			position = uavPositions[id]
+			xStart = position[0]
+			yStart = position[1]
+
+			uavPosition = uav['pointParticle']['location']
+			xEnd = uavPosition['x']
+			yEnd = uavPosition['y']
+
+			distance = uavDistanceFromTarget[id]
+			ratio = distance / maxDistance
+
 			# pokud je vzdálenost cíle větší, než jsem si určil, normalizuji
 			if distance > targetDistanceFromUAV:
-				x = (x * targetDistanceFromUAV) / distance
-				y = (y * targetDistanceFromUAV) / distance
+				newDistance = ratio * targetDistanceFromUAV
+				x = (x * newDistance) / distance
+				y = (y * newDistance) / distance
 
 			reducedDistance = math.sqrt(x ** 2 + y ** 2)
 
@@ -148,7 +172,7 @@ for stateId, state in enumerate(path):
 			print('distance: ' + str(distance))
 			print('reduced distance: ' + str(reducedDistance))
 
-			uavsReachedTargets[id] = distance < 2
+			uavsReachedTargets[id] = distance < distanceToNewState
 
 		allUavsReachedTarget = True
 		for uavId, reachedTarget in uavsReachedTargets.items():
