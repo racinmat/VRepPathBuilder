@@ -49,8 +49,7 @@ if clientID == -1:
 
 z = 0.511
 targetDistanceFromUAV = 0.2		# maximální vzdálenost z celého roje. Budu ostatním UAV nastavovat vzdálenost menší, aby je mohlo opožděné UAV dohnat, poměrově podle vzdáleností k cíli
-distanceToNewState = 2
-maxTargetDistanceFromUAV = 0.2
+distanceToNewState = 1.5
 
 uavNames = ['Quadricopter']
 targetNames = ['Quadricopter_target']
@@ -71,6 +70,8 @@ uavIds.sort()
 targets = {}  # dictionary
 uavs = {} 	# dictionary
 newStates = {}
+uavDummies = {}
+
 uavDistanceFromTarget = {}
 uavPositions = {}
 
@@ -84,6 +85,7 @@ for i, uavName in enumerate(uavNames):
 
 	# znázornění cíle
 	_, newStates[uavIds[i]] = vrep.simxCreateDummy(clientID, 0.25, [0, 255-i*50, i*50], vrep.simx_opmode_oneshot_wait)
+	# _, uavDummies[uavIds[i]] = vrep.simxCreateDummy(clientID, 0.15, [0, 255-i*50, i*50], vrep.simx_opmode_oneshot_wait)
 
 
 for stateId, state in enumerate(path):
@@ -111,7 +113,7 @@ for stateId, state in enumerate(path):
 
 	while not allUavsReachedTarget:
 
-		time.sleep(0.1)
+		time.sleep(0.05)
 
 		for id, uav in state.items():
 			uavPosition = uav['pointParticle']['location']
@@ -122,6 +124,7 @@ for stateId, state in enumerate(path):
 			yStart = position[1]
 
 			uavPositions[id] = position
+			# vrep.simxSetObjectPosition(clientID, uavDummies[id], -1, [xStart, yStart, z], vrep.simx_opmode_oneshot)
 
 			#na začátku někdy VREP špatně načítá počíteční polohu UAV, proto místo něj nastavím počáteční pozici z jsonu
 			if xStart == 0 and yStart == 0:
@@ -135,7 +138,7 @@ for stateId, state in enumerate(path):
 
 			uavDistanceFromTarget[id] = distance
 
-		maxDistance = max(uavDistanceFromTarget.items())[1]
+		maxDistance = max(uavDistanceFromTarget.values())
 		# print('uavPositions: ')
 		# pprint.pprint(uavPositions)
 		# print('maxDistance')
@@ -149,6 +152,9 @@ for stateId, state in enumerate(path):
 			uavPosition = uav['pointParticle']['location']
 			xEnd = uavPosition['x']
 			yEnd = uavPosition['y']
+
+			x = xEnd - xStart
+			y = yEnd - yStart
 
 			distance = uavDistanceFromTarget[id]
 			ratio = distance / maxDistance
