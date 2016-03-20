@@ -10,6 +10,9 @@ from utils import resizeCoords
 import time
 
 def setUavTarget(id, uav):
+	global uavsReachedTargets
+	global uavPreviousPositions
+
 	position = uavPositions[id]
 	xStart = position[0]
 	yStart = position[1]
@@ -44,10 +47,59 @@ def setUavTarget(id, uav):
 	# print('distance: ' + str(distance))
 	# print('reduced distance: ' + str(reducedDistance))
 
-	global uavsReachedTargets
-	global uavPreviousPositions
 	uavsReachedTargets[id] = distance < distanceToNewState
 	uavPreviousPositions[id] = uavPositions[id]
+
+def prepareUavForNewTarget(id, uav):
+	global uavPositions
+	global uavDistanceFromTarget
+	global uavSpeeds
+	global slowingUAVs
+	global counter
+
+	uavPosition = uav['pointParticle']['location']
+	xEnd = uavPosition['x']
+	yEnd = uavPosition['y']
+	_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_buffer)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
+	xStart = position[0]
+	yStart = position[1]
+
+	uavPositions[id] = position
+	# vrep.simxSetObjectPosition(clientID, uavDummies[id], -1, [xStart, yStart, z], vrep.simx_opmode_oneshot)
+
+	#na začátku někdy VREP špatně načítá počíteční polohu UAV, proto místo něj nastavím počáteční pozici z jsonu
+	if xStart == 0 and yStart == 0:
+		xStart = uavInitialPositions[id]['pointParticle']['location']['x']
+		yStart = uavInitialPositions[id]['pointParticle']['location']['y']
+
+	x = xEnd - xStart
+	y = yEnd - yStart
+
+	distance = math.sqrt(x ** 2 + y ** 2)
+
+	uavDistanceFromTarget[id] = distance
+
+	# 	calculating UAV current speed
+	if id in uavPreviousPositions:			# check because of initial position
+		xDiff = position[0] - uavPreviousPositions[id][0]
+		yDiff = position[1] - uavPreviousPositions[id][1]
+	else:
+		xDiff = 0
+		yDiff = 0
+
+	distanceFromPreviousPosition = math.sqrt(xDiff ** 2 + yDiff ** 2)
+	speed = distanceFromPreviousPosition / timeStep
+	uavSpeeds[id] = speed
+	# if uav is not slowing and has higher speed than limit, it starts slowing. If uav is already slowing, it keeps slowing ehile it has speed highet than low speed limit
+	if not slowingUAVs[id]:
+		slowingUAVs[id] = speed > speedLimit
+	elif slowingUAVs[id]:
+		slowingUAVs[id] = speed > lowSpeedLimit
+
+	vrep.simxSetObjectPosition(clientID, uavSpeedDummies[id], -1, [-12 + (counter / 2), -12 + (speed > speedLimit) * 5, z], vrep.simx_opmode_oneshot)
+	# rychlost nad 2.5 už je problematická, musím zpomalit
+	counter += 1
+	# end of calculating UAV current speed
 
 
 now = datetime.datetime.now()
@@ -167,49 +219,7 @@ for stateId, state in enumerate(path):
 
 		counter = 0	# counter for speed visualization
 		for id, uav in state.items():
-			uavPosition = uav['pointParticle']['location']
-			xEnd = uavPosition['x']
-			yEnd = uavPosition['y']
-			_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_buffer)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
-			xStart = position[0]
-			yStart = position[1]
-
-			uavPositions[id] = position
-			# vrep.simxSetObjectPosition(clientID, uavDummies[id], -1, [xStart, yStart, z], vrep.simx_opmode_oneshot)
-
-			#na začátku někdy VREP špatně načítá počíteční polohu UAV, proto místo něj nastavím počáteční pozici z jsonu
-			if xStart == 0 and yStart == 0:
-				xStart = uavInitialPositions[id]['pointParticle']['location']['x']
-				yStart = uavInitialPositions[id]['pointParticle']['location']['y']
-
-			x = xEnd - xStart
-			y = yEnd - yStart
-
-			distance = math.sqrt(x ** 2 + y ** 2)
-
-			uavDistanceFromTarget[id] = distance
-
-			# 	calculating UAV current speed
-			if id in uavPreviousPositions:			# check because of initial position
-				xDiff = position[0] - uavPreviousPositions[id][0]
-				yDiff = position[1] - uavPreviousPositions[id][1]
-			else:
-				xDiff = 0
-				yDiff = 0
-
-			distanceFromPreviousPosition = math.sqrt(xDiff ** 2 + yDiff ** 2)
-			speed = distanceFromPreviousPosition / timeStep
-			uavSpeeds[id] = speed
-			# if uav is not slowing and has higher speed than limit, it starts slowing. If uav is already slowing, it keeps slowing ehile it has speed highet than low speed limit
-			if not slowingUAVs[id]:
-				slowingUAVs[id] = speed > speedLimit
-			elif slowingUAVs[id]:
-				slowingUAVs[id] = speed > lowSpeedLimit
-
-			vrep.simxSetObjectPosition(clientID, uavSpeedDummies[id], -1, [-12 + (counter / 2), -12 + (speed > speedLimit) * 5, z], vrep.simx_opmode_oneshot)
-			# rychlost nad 2.5 už je problematická, musím zpomalit
-			counter += 1
-			# end of calculating UAV current speed
+			prepareUavForNewTarget(id, uav)
 
 		string = ''
 		for speed in uavSpeeds.values():
