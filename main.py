@@ -9,6 +9,47 @@ from utils import moveCoords
 from utils import resizeCoords
 import time
 
+def setUavTarget(id, uav):
+	position = uavPositions[id]
+	xStart = position[0]
+	yStart = position[1]
+
+	uavPosition = uav['pointParticle']['location']
+	xEnd = uavPosition['x']
+	yEnd = uavPosition['y']
+
+	x = xEnd - xStart
+	y = yEnd - yStart
+
+	distance = uavDistanceFromTarget[id]
+	ratio = distance / maxDistance
+
+	# pokud je vzdálenost cíle větší, než jsem si určil, normalizuji
+	if distance > targetDistanceFromUAV:
+		newDistance = ratio * targetDistanceFromUAV
+		x = (x * newDistance) / distance
+		y = (y * newDistance) / distance
+
+	reducedDistance = math.sqrt(x ** 2 + y ** 2)
+
+	xTarget = xStart + x
+	yTarget = yStart + y
+
+	vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)
+
+	# print('position updated, start position of uav ' + id + '(vrep name: ' + uavNames[uavIds.index(id)] + '):')
+	# print('start: ' + str(xStart) + ', ' + str(yStart))
+	# print('end: ' + str(xEnd) + ', ' + str(yEnd))
+	# print('movement: ' + str(x) + ', ' + str(y))
+	# print('distance: ' + str(distance))
+	# print('reduced distance: ' + str(reducedDistance))
+
+	global uavsReachedTargets
+	global uavPreviousPositions
+	uavsReachedTargets[id] = distance < distanceToNewState
+	uavPreviousPositions[id] = uavPositions[id]
+
+
 now = datetime.datetime.now()
 # sys.stdout = open('log-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second) + '.txt', 'w')		# redirecting output to file
 print('Program started')
@@ -80,7 +121,7 @@ uavPositions = {}			# current positions
 uavSpeeds = {}				# current speeds
 uavPreviousPositions = {}	# positions of previous iteration
 uavSpeedDummies = {}		# speed marker dummy object handlers
-slowingUAV = {}
+slowingUAVs = {}
 
 uavInitialPositions = path[0]
 
@@ -109,7 +150,7 @@ for stateId, state in enumerate(path):
 	uavsReachedTargets = {}
 	for id in uavIds:
 		uavsReachedTargets[id] = False
-		slowingUAV[id] = False
+		slowingUAVs[id] = False
 
 	allUavsReachedTarget = False
 
@@ -160,10 +201,10 @@ for stateId, state in enumerate(path):
 			speed = distanceFromPreviousPosition / timeStep
 			uavSpeeds[id] = speed
 			# if uav is not slowing and has higher speed than limit, it starts slowing. If uav is already slowing, it keeps slowing ehile it has speed highet than low speed limit
-			if not slowingUAV[id]:
-				slowingUAV[id] = speed > speedLimit
-			elif slowingUAV[id]:
-				slowingUAV[id] = speed > lowSpeedLimit
+			if not slowingUAVs[id]:
+				slowingUAVs[id] = speed > speedLimit
+			elif slowingUAVs[id]:
+				slowingUAVs[id] = speed > lowSpeedLimit
 
 			vrep.simxSetObjectPosition(clientID, uavSpeedDummies[id], -1, [-12 + (counter / 2), -12 + (speed > speedLimit) * 5, z], vrep.simx_opmode_oneshot)
 			# rychlost nad 2.5 už je problematická, musím zpomalit
@@ -173,8 +214,8 @@ for stateId, state in enumerate(path):
 		string = ''
 		for speed in uavSpeeds.values():
 			string += "{0:.3f}, ".format(speed)
-		for speed in uavSpeeds.values():
-			string += str(speed > speedLimit) + ", "
+		for slowing in slowingUAVs.values():
+			string += str(slowing) + ", "
 		print(string)
 
 		maxDistance = max(uavDistanceFromTarget.values())
@@ -184,53 +225,20 @@ for stateId, state in enumerate(path):
 		# print(maxDistance)
 
 		for id, uav in state.items():
-			position = uavPositions[id]
-			xStart = position[0]
-			yStart = position[1]
-
-			uavPosition = uav['pointParticle']['location']
-			xEnd = uavPosition['x']
-			yEnd = uavPosition['y']
-
-			x = xEnd - xStart
-			y = yEnd - yStart
-
-			distance = uavDistanceFromTarget[id]
-			ratio = distance / maxDistance
-
-			# pokud je vzdálenost cíle větší, než jsem si určil, normalizuji
-			if distance > targetDistanceFromUAV:
-				newDistance = ratio * targetDistanceFromUAV
-				x = (x * newDistance) / distance
-				y = (y * newDistance) / distance
-
-			reducedDistance = math.sqrt(x ** 2 + y ** 2)
-
-			xTarget = xStart + x
-			yTarget = yStart + y
-
-			# # pokud překročí UAV rychlostní limit (nabere moc kinetické energie na hladkou zatáčku), musí zpomalit
-			# if slowingUAV:
-			# 	xTarget = xStart
-			# 	yTarget = yStart
-
-			vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)
-
-			# print('position updated, start position of uav ' + id + '(vrep name: ' + uavNames[uavIds.index(id)] + '):')
-			# print('start: ' + str(xStart) + ', ' + str(yStart))
-			# print('end: ' + str(xEnd) + ', ' + str(yEnd))
-			# print('movement: ' + str(x) + ', ' + str(y))
-			# print('distance: ' + str(distance))
-			# print('reduced distance: ' + str(reducedDistance))
-
-			uavsReachedTargets[id] = distance < distanceToNewState
-			uavPreviousPositions[id] = uavPositions[id]
+			setUavTarget(id, uav)
 
 		allUavsReachedTarget = True
 		for uavId, reachedTarget in uavsReachedTargets.items():
 			allUavsReachedTarget = allUavsReachedTarget and reachedTarget
 
+	# pokud překročí nějaké UAV rychlostní limit (nabere moc kinetické energie na hladkou zatáčku), musí zpomalit
+	while any(slowingUAVs.values()):
+		for id, uav in state.items():
+			if slowingUAVs[id]:
+				xTarget = xStart
+				yTarget = yStart
 
 	# print('all uavs now have new state as target')
 
 print('uavs arrived to target')
+
