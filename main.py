@@ -9,8 +9,9 @@ from utils import moveCoords
 from utils import resizeCoords
 import time
 
+
 def setUavTarget(id, uav):
-	global uavsTargetPositions
+	global uavsPreviousTargetPositions
 	global uavsReachedTargets
 	global uavPreviousPositions
 
@@ -39,8 +40,19 @@ def setUavTarget(id, uav):
 	xTarget = xStart + x
 	yTarget = yStart + y
 
-	vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)
-	uavsTargetPositions[id] = [xTarget, yTarget]
+	xPrevTarget = uavsPreviousTargetPositions[id][0]
+	yPrevTarget = uavsPreviousTargetPositions[id][1]
+
+	previousTargetEndDistance = math.sqrt((xPrevTarget - xEnd) ** 2 + (yPrevTarget - yEnd) ** 2)
+	currentTargetEndDistance = math.sqrt((xTarget - xEnd) ** 2 + (yTarget - yEnd) ** 2)
+
+	# UAV přelétlo a vzdaluje se od nového stavu
+	if previousTargetEndDistance < currentTargetEndDistance:
+		vrep.simxSetObjectPosition(clientID, targets[id], -1, [xPrevTarget, yPrevTarget, z], vrep.simx_opmode_oneshot)
+	else:
+		vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)
+
+	uavsPreviousTargetPositions[id] = [xTarget, yTarget]
 
 	# print('position updated, start position of uav ' + id + '(vrep name: ' + uavNames[uavIds.index(id)] + '):')
 	# print('start: ' + str(xStart) + ', ' + str(yStart))
@@ -51,6 +63,7 @@ def setUavTarget(id, uav):
 
 	uavsReachedTargets[id] = distance < distanceToNewState
 	uavPreviousPositions[id] = uavPositions[id]
+
 
 def prepareUavForNewTarget(id, uav):
 	global uavPositions
@@ -137,7 +150,7 @@ if clientID == -1:
 z = 0.511
 targetDistanceFromUAV = 0.13		# maximální vzdálenost z celého roje. Budu ostatním UAV nastavovat vzdálenost menší, aby je mohlo opožděné UAV dohnat, poměrově podle vzdáleností k cíli
 distanceToNewState = 0.3
-timeStep = 0.7
+timeStep = 1
 
 uavNames = ['Quadricopter']
 targetNames = ['Quadricopter_target']
@@ -160,7 +173,7 @@ uavs = {} 				# dictionary, UAV object handlers
 newStates = {}			# new state dummy object handlers
 uavDummies = {}			# uav dummy object handlers
 
-uavsTargetPositions = {}	# distionary, value is position as 2 element array
+uavsPreviousTargetPositions = {}	# distionary, value is position as 2 element array
 uavIsInTarget = {}			# dictionary, values jsou booleany
 uavDistanceFromNewState = {}
 uavPositions = {}			# current positions
@@ -188,6 +201,7 @@ for stateId, state in enumerate(path):
 		xEnd = uavPosition['x']
 		yEnd = uavPosition['y']
 		vrep.simxSetObjectPosition(clientID, newStates[id], -1, [xEnd, yEnd, z], vrep.simx_opmode_oneshot)
+		uavsPreviousTargetPositions[id] = [1000, 1000]		# potřebuji nastavit velkou vzdálenost pro předchozí cíl, abych první cíl k novému stavu byl blíže. Aby se nespouštěla ochrana proti přeletění
 
 	# print('current state:')
 	# print(stateId)
