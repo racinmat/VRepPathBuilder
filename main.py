@@ -48,10 +48,10 @@ def setUavTarget(id, uav):
 
 	# UAV přelétlo a vzdaluje se od nového stavu
 	if previousTargetEndDistance < currentTargetEndDistance:
-		vrep.simxSetObjectPosition(clientID, targets[id], -1, [xPrevTarget, yPrevTarget, z], vrep.simx_opmode_oneshot)
-	else:
-		vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)
+		xTarget = xPrevTarget
+		yTarget = yPrevTarget
 
+	vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)
 	uavsPreviousTargetPositions[id] = [xTarget, yTarget]
 
 	# print('position updated, start position of uav ' + id + '(vrep name: ' + uavNames[uavIds.index(id)] + '):')
@@ -148,9 +148,9 @@ if clientID == -1:
 
 
 z = 0.511
-targetDistanceFromUAV = 0.13		# maximální vzdálenost z celého roje. Budu ostatním UAV nastavovat vzdálenost menší, aby je mohlo opožděné UAV dohnat, poměrově podle vzdáleností k cíli
-distanceToNewState = 0.3
-timeStep = 1
+targetDistanceFromUAV = 0.2		# maximální vzdálenost z celého roje. Budu ostatním UAV nastavovat vzdálenost menší, aby je mohlo opožděné UAV dohnat, poměrově podle vzdáleností k cíli
+distanceToNewState = 0.5
+timeStep = 0.2
 
 uavNames = ['Quadricopter']
 targetNames = ['Quadricopter_target']
