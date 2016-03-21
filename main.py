@@ -10,6 +10,7 @@ from utils import resizeCoords
 import time
 
 def setUavTarget(id, uav):
+	global uavsTargetPositions
 	global uavsReachedTargets
 	global uavPreviousPositions
 
@@ -24,7 +25,7 @@ def setUavTarget(id, uav):
 	x = xEnd - xStart
 	y = yEnd - yStart
 
-	distance = uavDistanceFromTarget[id]
+	distance = uavDistanceFromNewState[id]
 	ratio = distance / maxDistance
 
 	# pokud je vzdálenost cíle větší, než jsem si určil, normalizuji
@@ -39,6 +40,7 @@ def setUavTarget(id, uav):
 	yTarget = yStart + y
 
 	vrep.simxSetObjectPosition(clientID, targets[id], -1, [xTarget, yTarget, z], vrep.simx_opmode_oneshot)
+	uavsTargetPositions[id] = [xTarget, yTarget]
 
 	# print('position updated, start position of uav ' + id + '(vrep name: ' + uavNames[uavIds.index(id)] + '):')
 	# print('start: ' + str(xStart) + ', ' + str(yStart))
@@ -52,7 +54,7 @@ def setUavTarget(id, uav):
 
 def prepareUavForNewTarget(id, uav):
 	global uavPositions
-	global uavDistanceFromTarget
+	global uavDistanceFromNewState
 	global uavSpeeds
 	global slowingUAVs
 	global counter
@@ -77,7 +79,7 @@ def prepareUavForNewTarget(id, uav):
 
 	distance = math.sqrt(x ** 2 + y ** 2)
 
-	uavDistanceFromTarget[id] = distance
+	uavDistanceFromNewState[id] = distance
 
 	# 	calculating UAV current speed
 	if id in uavPreviousPositions:			# check because of initial position
@@ -141,8 +143,8 @@ if clientID == -1:
 
 
 z = 0.511
-targetDistanceFromUAV = 0.13		# maximální vzdálenost z celého roje. Budu ostatním UAV nastavovat vzdálenost menší, aby je mohlo opožděné UAV dohnat, poměrově podle vzdáleností k cíli
-distanceToNewState = 0.25
+targetDistanceFromUAV = 0.2		# maximální vzdálenost z celého roje. Budu ostatním UAV nastavovat vzdálenost menší, aby je mohlo opožděné UAV dohnat, poměrově podle vzdáleností k cíli
+distanceToNewState = 0.3
 timeStep = 0.25
 speedLimit = 0.25
 lowSpeedLimit = 0.03
@@ -163,12 +165,14 @@ for id in path[0]:
 # print(uavIds)
 
 uavIds.sort()
-targets = {}  # dictionary
-uavs = {} 	# dictionary
+targets = {}  			# dictionary, UAV target object handlers
+uavs = {} 				# dictionary, UAV object handlers
 newStates = {}			# new state dummy object handlers
 uavDummies = {}			# uav dummy object handlers
 
-uavDistanceFromTarget = {}
+uavsTargetPositions = {}	# distionary, value is position as 2 element array
+uavIsInTarget = {}			# dictionary, values jsou booleany
+uavDistanceFromNewState = {}
 uavPositions = {}			# current positions
 uavSpeeds = {}				# current speeds
 uavPreviousPositions = {}	# positions of previous iteration
@@ -204,7 +208,7 @@ for stateId, state in enumerate(path):
 		uavsReachedTargets[id] = False
 		slowingUAVs[id] = False
 
-	allUavsReachedTarget = False
+	allUavsReachedNewState = False
 
 	# čeká se, než se k dalšímu stavu dorazí, než se nastaví jako cíl
 
@@ -213,13 +217,14 @@ for stateId, state in enumerate(path):
 	# kromě 1. stavu brát vzdálenost mezi UAV a dalším stavem, místo 2 stavů
 	# vzorkovat trajektorie ekvidistantně v čase
 
-	while not allUavsReachedTarget:
+	while not allUavsReachedNewState:
 
 		time.sleep(timeStep)
 
 		counter = 0	# counter for speed visualization, used in function as gloval variable
 		for id, uav in state.items():
 			prepareUavForNewTarget(id, uav)
+			uavIsInTarget[id] = False
 
 		string = ''
 		for speed in uavSpeeds.values():
@@ -228,7 +233,7 @@ for stateId, state in enumerate(path):
 			string += str(slowing) + ", "
 		# print(string)
 
-		maxDistance = max(uavDistanceFromTarget.values())
+		maxDistance = max(uavDistanceFromNewState.values())
 		# print('uavPositions: ')
 		# pprint.pprint(uavPositions)
 		# print('maxDistance')
@@ -237,9 +242,31 @@ for stateId, state in enumerate(path):
 		for id, uav in state.items():
 			setUavTarget(id, uav)
 
-		allUavsReachedTarget = True
-		for uavId, reachedTarget in uavsReachedTargets.items():
-			allUavsReachedTarget = allUavsReachedTarget and reachedTarget
+		# čekání, než UAV dorazí do cíle. Tím, že cíl nebudu neustále posouvat, zabráním přemitům po rovných trajektoriích
+		while not all(uavIsInTarget.values()):
+			for id, uav in state.items():
+				_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_buffer)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
+				xStart = position[0]
+				yStart = position[1]
+
+				xTarget = uavsTargetPositions[id][0]
+				yTarget = uavsTargetPositions[id][1]
+
+				x = xTarget - xStart
+				y = yTarget - yStart
+
+				distance = math.sqrt(x ** 2 + y ** 2)
+				print(distance)
+				if distance < 0.17:
+					uavIsInTarget[id] = True
+
+			time.sleep(0.01)
+			print('waiting')
+		# konec čekání
+
+		allUavsReachedNewState = True
+		for uavId, newStateReached in uavsReachedTargets.items():
+			allUavsReachedNewState = allUavsReachedNewState and newStateReached
 
 	# pokud překročí nějaké UAV rychlostní limit (nabere moc kinetické energie na hladkou zatáčku), musí zpomalit
 	# poté, co dorazí do nového stavu, se nastaví cíl na nový stav na tak dlouho, dokud nezpomalí
