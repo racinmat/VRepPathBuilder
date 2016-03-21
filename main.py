@@ -141,11 +141,11 @@ if clientID == -1:
 
 
 z = 0.511
-targetDistanceFromUAV = 0.2		# maximální vzdálenost z celého roje. Budu ostatním UAV nastavovat vzdálenost menší, aby je mohlo opožděné UAV dohnat, poměrově podle vzdáleností k cíli
-distanceToNewState = 0.5
-timeStep = 0.1
+targetDistanceFromUAV = 0.13		# maximální vzdálenost z celého roje. Budu ostatním UAV nastavovat vzdálenost menší, aby je mohlo opožděné UAV dohnat, poměrově podle vzdáleností k cíli
+distanceToNewState = 0.25
+timeStep = 0.25
 speedLimit = 0.25
-lowSpeedLimit = 0.1
+lowSpeedLimit = 0.03
 
 uavNames = ['Quadricopter']
 targetNames = ['Quadricopter_target']
@@ -217,7 +217,7 @@ for stateId, state in enumerate(path):
 
 		time.sleep(timeStep)
 
-		counter = 0	# counter for speed visualization
+		counter = 0	# counter for speed visualization, used in function as gloval variable
 		for id, uav in state.items():
 			prepareUavForNewTarget(id, uav)
 
@@ -226,7 +226,7 @@ for stateId, state in enumerate(path):
 			string += "{0:.3f}, ".format(speed)
 		for slowing in slowingUAVs.values():
 			string += str(slowing) + ", "
-		print(string)
+		# print(string)
 
 		maxDistance = max(uavDistanceFromTarget.values())
 		# print('uavPositions: ')
@@ -242,12 +242,28 @@ for stateId, state in enumerate(path):
 			allUavsReachedTarget = allUavsReachedTarget and reachedTarget
 
 	# pokud překročí nějaké UAV rychlostní limit (nabere moc kinetické energie na hladkou zatáčku), musí zpomalit
+	# poté, co dorazí do nového stavu, se nastaví cíl na nový stav na tak dlouho, dokud nezpomalí
 	while any(slowingUAVs.values()):
+		counter = 0	# counter for speed visualization
 		for id, uav in state.items():
-			if slowingUAVs[id]:
-				xTarget = xStart
-				yTarget = yStart
+			prepareUavForNewTarget(id, uav)
 
+		string = ''
+		for speed in uavSpeeds.values():
+			string += "{0:.3f}, ".format(speed)
+		for slowing in slowingUAVs.values():
+			string += str(slowing) + ", "
+		# print(string)
+
+		for id, uav in state.items():
+			uavPosition = uav['pointParticle']['location']
+			xEnd = uavPosition['x']
+			yEnd = uavPosition['y']
+
+			vrep.simxSetObjectPosition(clientID, targets[id], -1, [xEnd, yEnd, z], vrep.simx_opmode_oneshot)
+			uavPreviousPositions[id] = uavPositions[id]
+
+		print('slowing maneuver')
 	# print('all uavs now have new state as target')
 
 print('uavs arrived to target')
