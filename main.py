@@ -173,7 +173,7 @@ uavs = {} 				# dictionary, UAV object handlers
 newStates = {}			# new state dummy object handlers
 uavDummies = {}			# uav dummy object handlers
 
-uavsPreviousTargetPositions = {}	# distionary, value is position as 2 element array
+uavsPreviousTargetPositions = {}	# dictionary, value is position as 2 element array
 uavIsInTarget = {}			# dictionary, values jsou booleany
 uavDistanceFromNewState = {}
 uavPositions = {}			# current positions
@@ -182,6 +182,8 @@ uavPreviousPositions = {}	# positions of previous iteration
 slowingUAVs = {}
 
 uavInitialPositions = path[0]
+showTargets = True
+
 
 # vezmu handle targetů kvadrokoptér
 for i, uavName in enumerate(uavNames):
@@ -190,8 +192,9 @@ for i, uavName in enumerate(uavNames):
 	vrep.simxGetObjectPosition(clientID, uavs[uavIds[i]], -1, vrep.simx_opmode_streaming)
 
 	# znázornění cíle
-	_, newStates[uavIds[i]] = vrep.simxCreateDummy(clientID, 0.25, [0, 255-i*50, i*50], vrep.simx_opmode_oneshot_wait)
-	# _, uavDummies[uavIds[i]] = vrep.simxCreateDummy(clientID, 0.15, [0, 255-i*50, i*50], vrep.simx_opmode_oneshot_wait)
+	if showTargets:
+		_, newStates[uavIds[i]] = vrep.simxCreateDummy(clientID, 0.25, [255-i*50, 0, i*50], vrep.simx_opmode_oneshot_wait)
+	# _, uavDummies[uavIds[i]] = vrep.simxCreateDummy(clientID, 0.15, [255-i*50, 0, i*50], vrep.simx_opmode_oneshot_wait)
 
 
 for stateId, state in enumerate(path):
@@ -200,7 +203,10 @@ for stateId, state in enumerate(path):
 		uavPosition = uav['pointParticle']['location']
 		xEnd = uavPosition['x']
 		yEnd = uavPosition['y']
-		vrep.simxSetObjectPosition(clientID, newStates[id], -1, [xEnd, yEnd, z], vrep.simx_opmode_oneshot)
+
+		if showTargets:
+			vrep.simxSetObjectPosition(clientID, newStates[id], -1, [xEnd, yEnd, z], vrep.simx_opmode_oneshot)
+
 		uavsPreviousTargetPositions[id] = [1000, 1000]		# potřebuji nastavit velkou vzdálenost pro předchozí cíl, abych první cíl k novému stavu byl blíže. Aby se nespouštěla ochrana proti přeletění
 
 	# print('current state:')
@@ -243,28 +249,6 @@ for stateId, state in enumerate(path):
 
 		for id, uav in state.items():
 			setUavTarget(id, uav)
-
-		# # čekání, než UAV dorazí do cíle. Tím, že cíl nebudu neustále posouvat, zabráním přemitům po rovných trajektoriích
-		# while not all(uavIsInTarget.values()):
-		# 	for id, uav in state.items():
-		# 		_, position = vrep.simxGetObjectPosition(clientID, uavs[id], -1, vrep.simx_opmode_buffer)  # tímhle získám momentální polohu kvadrokoptéry, podle toho nasazuji další cíl
-		# 		xStart = position[0]
-		# 		yStart = position[1]
-		#
-		# 		xTarget = uavsTargetPositions[id][0]
-		# 		yTarget = uavsTargetPositions[id][1]
-		#
-		# 		x = xTarget - xStart
-		# 		y = yTarget - yStart
-		#
-		# 		distance = math.sqrt(x ** 2 + y ** 2)
-		# 		print(distance)
-		# 		if distance < 0.16:
-		# 			uavIsInTarget[id] = True
-		#
-		# 	time.sleep(0.05)
-		# 	print('waiting')
-		# # konec čekání
 
 		allUavsReachedNewState = True
 		for uavId, newStateReached in uavsReachedTargets.items():
